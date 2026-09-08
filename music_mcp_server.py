@@ -5,6 +5,7 @@ import json
 import asyncio
 import logging
 import websockets
+import uvicorn
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
