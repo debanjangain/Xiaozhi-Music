@@ -10,7 +10,7 @@ from fastapi import FastAPI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = os.getenv("XIAOZHI_TOKEN", "")
+TOKEN = os.getenv("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEwNjk0MDYsImFnZW50SWQiOjIzMjcxNTksImVuZHBvaW50SWQiOiJhZ2VudF8yMzI3MTU5IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc4ODg5MjI4NSwiZXhwIjoxODIwNDQ5ODg1fQ.M37BSu-t_DmuKhYqrDT5UoQ47H-HNOIENEiC6jCqOTZ239hzcXxB-mTX80r_-N_v1Uqm5r3oz28vMigxyAGKRg")
 
 app = FastAPI()
 
