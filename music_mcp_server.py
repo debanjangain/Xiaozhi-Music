@@ -10,7 +10,8 @@ from fastapi import FastAPI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = os.getenv("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEwNjk0MDYsImFnZW50SWQiOjIzMjcxNTksImVuZHBvaW50SWQiOiJhZ2VudF8yMzI3MTU5IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc4ODg5NjE2OSwiZXhwIjoxODIwNDUzNzY5fQ.cB70266jAUOcnCUL_jIwJpayECPrd76H_8X-7baRM6lhus0gUqEUdXYM08p7qsXzEhT5G7a-bz90SCrolQysvA")
+# Pass the KEY NAME into os.getenv
+TOKEN = os.getenv("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEwNjk0MDYsImFnZW50SWQiOjIzMjcxNTksImVuZHBvaW50SWQiOiJhZ2VudF8yMzI3MTU5IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc4ODg5NjE2OSwiZXhwIjoxODIwNDUzNzY5fQ.cB70266jAUOcnCUL_jIwJpayECPrd76H_8X-7baRM6lhus0gUqEUdXYM08p7qsXzEhT5G7a-bz90SCrolQysvA", "").strip(" '\",")
 
 app = FastAPI()
 
@@ -64,10 +65,12 @@ async def connect_to_xiaozhi():
         return
 
     ws_url = f"wss://api.xiaozhi.me/mcp/?token={TOKEN}"
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    
     while True:
         try:
             logger.info("Connecting to Xiaozhi MCP Bridge...")
-            async with websockets.connect(ws_url) as ws:
+            async with websockets.connect(ws_url, extra_headers=headers) as ws:
                 logger.info("Connected to Xiaozhi Bridge successfully!")
                 while True:
                     msg = await ws.recv()
@@ -86,3 +89,4 @@ async def startup_event():
 @app.get("/")
 def health_check():
     return {"status": "ok"}
+    
