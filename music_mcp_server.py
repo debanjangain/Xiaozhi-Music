@@ -10,7 +10,6 @@ from fastapi import FastAPI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Fetch the token from Render's environment variable
 TOKEN = os.getenv("XIAOZHI_TOKEN", "").strip(" '\",")
 
 app = FastAPI()
@@ -41,9 +40,32 @@ async def handle_request(request: dict) -> dict:
     method = request.get("method")
     params = request.get("params", {})
 
-    if method == "tools/list":
+    # 1. MCP Initialization Handshake
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {}
+                },
+                "serverInfo": {
+                    "name": "xiaozhi-music-mcp",
+                    "version": "1.0.0"
+                }
+            }
+        }
+
+    # 2. Ignore MCP initialized notification (no response required)
+    elif method == "notifications/initialized":
+        return None
+
+    # 3. List available tools
+    elif method == "tools/list":
         return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": TOOLS}}
 
+    # 4. Execute tool calls
     elif method == "tools/call":
         tool_name = params.get("name")
         args = params.get("arguments", {})
@@ -64,7 +86,6 @@ async def connect_to_xiaozhi():
         logger.error("XIAOZHI_TOKEN environment variable is missing!")
         return
 
-    # Pass the token inside the WebSocket query parameters cleanly
     ws_url = f"wss://api.xiaozhi.me/mcp/?token={TOKEN}"
     
     while True:
@@ -77,7 +98,10 @@ async def connect_to_xiaozhi():
                     data = json.loads(msg)
                     logger.info(f"Received request: {data}")
                     response = await handle_request(data)
-                    await ws.send(json.dumps(response))
+                    
+                    # Send response only if requested
+                    if response is not None:
+                        await ws.send(json.dumps(response))
         except Exception as e:
             logger.warning(f"Connection lost: {e}. Retrying in 5 seconds...")
             await asyncio.sleep(5)
