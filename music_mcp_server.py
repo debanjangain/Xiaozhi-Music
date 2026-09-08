@@ -1,41 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import os
+import json
 import asyncio
 import logging
-from typing import Any, Dict, List
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+import websockets
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="Xiaozhi Music MCP Server")
+TOKEN = os.getenv("XIAOZHI_TOKEN", "")
 
-# Storage state
-playback_state = {
-    "current_song": None,
-    "playlist": [],
-    "is_playing": False,
-    "volume": 50,
-    "position": 0
-}
-
-# --- Tool Handlers ---
-async def search_music_api(query: str, limit: int = 10) -> List[Dict[str, Any]]:
-    return [
-        {
-            "id": f"song_{i}",
-            "name": f"Song {i}: {query}",
-            "artist": f"Artist {i}",
-            "album": f"Album {i}",
-            "duration": 240,
-            "url": f"https://music.example.com/song_{i}.mp3"
-        }
-        for i in range(1, min(limit + 1, 6))
-    ]
-
-# --- Tool Call Definitions ---
 TOOLS = [
     {
         "name": "search_music",
@@ -43,8 +18,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Search keyword"},
-                "limit": {"type": "integer", "default": 10}
+                "query": {"type": "string", "description": "Search keyword"}
             },
             "required": ["query"]
         }
@@ -56,44 +30,59 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "song_id": {"type": "string"},
-                "song_name": {"type": "string"},
-                "artist": {"type": "string"}
+                "song_name": {"type": "string"}
             },
             "required": ["song_id"]
         }
     }
 ]
 
-@app.get("/")
-async def root():
-    return {"status": "ok", "message": "Xiaozhi Music MCP Server is running"}
+async def handle_request(request: dict) -> dict:
+    req_id = request.get("id")
+    method = request.get("method")
+    params = request.get("params", {})
 
-# --- MCP Web Endpoint for Xiaozhi ---
-@app.post("/mcp")
-@app.post("/")
-async def handle_mcp(request: Request):
-    data = await request.json()
-    method = data.get("method")
-    params = data.get("params", {})
-    
     if method == "tools/list":
-        return {"tools": TOOLS}
-        
+        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": TOOLS}}
+
     elif method == "tools/call":
         tool_name = params.get("name")
         args = params.get("arguments", {})
-        
+
         if tool_name == "search_music":
-            results = await search_music_api(args.get("query", ""))
-            text = "\n".join([f"{s['name']} - {s['artist']} (ID: {s['id']})" for s in results])
-            return {"content": [{"type": "text", "text": text}]}
-            
+            q = args.get("query", "")
+            res = f"1. Song: {q} - Artist Demo (ID: 101)\n2. Song: {q} (Remix) (ID: 102)"
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": res}]}}
+
         elif tool_name == "play_music":
-            playback_state["is_playing"] = True
-            playback_state["current_song"] = args
-            return {"content": [{"type": "text", "text": f"Now playing: {args.get('song_name', 'Music')}"}]}
-            
-        return {"error": f"Unknown tool: {tool_name}"}
-        
-    return {"error": f"Unsupported method: {method}"}
+            song = args.get("song_name", "Music")
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Now playing {song}"}]}}
+
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": "Method not found"}}
+
+async def connect_to_xiaozhi():
+    if not TOKEN:
+        logger.error("XIAOZHI_TOKEN environment variable is missing!")
+        return
+
+    # Append token directly to the WebSocket URL query string
+    ws_url = f"wss://api.xiaozhi.me/mcp/?token={TOKEN}"
+    
+    while True:
+        try:
+            logger.info("Connecting to Xiaozhi MCP Bridge...")
+            async with websockets.connect(ws_url) as ws:
+                logger.info("Connected to Xiaozhi Bridge successfully!")
+                while True:
+                    msg = await ws.recv()
+                    data = json.loads(msg)
+                    logger.info(f"Received request: {data}")
+                    response = await handle_request(data)
+                    await ws.send(json.dumps(response))
+        except Exception as e:
+            logger.warning(f"Connection lost: {e}. Retrying in 5 seconds...")
+            await asyncio.sleep(5)
+
+if __name__ == "__main__":
+    asyncio.run(connect_to_xiaozhi())
     
