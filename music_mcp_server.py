@@ -18,7 +18,7 @@ app = FastAPI()
 TOOLS = [
     {
         "name": "search_music",
-        "description": "ALWAYS call this tool whenever the user asks to search, find, or look up a song, track, music, or artist in the Indian music library.",
+        "description": "ALWAYS call this tool whenever the user asks to search, find, or look up a song, track, music, or artist.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -79,41 +79,38 @@ async def handle_request(request: dict) -> dict:
         args = params.get("arguments", {})
 
         if tool_name == "search_music":
-            q = args.get("query", "")
-            logger.info(f"Searching JioSaavn for query: {q}")
+            q = args.get("query", "").strip()
+            logger.info(f"Searching TheAudioDB for query: {q}")
             
-            # Query JioSaavn public endpoint
-            api_url = f"https://saavn.dev/api/search/songs?query={q}&limit=3"
+            # TheAudioDB public test API endpoint (API Key: 123)
+            api_url = f"https://www.theaudiodb.com/api/v1/json/123/search.php?s={q}"
             
             async with httpx.AsyncClient() as client:
                 try:
                     res = await client.get(api_url, timeout=10.0)
                     data = res.json()
                     
-                    if data.get("success") and data.get("data", {}).get("results"):
-                        tracks = data["data"]["results"]
-                        formatted_results = []
-                        
-                        for idx, track in enumerate(tracks, 1):
-                            title = track.get("name", "Unknown")
-                            artist = track.get("primaryArtists", "Unknown Artist")
-                            song_id = track.get("id", "")
-                            
-                            # Extract highest available audio stream link
-                            download_urls = track.get("downloadUrl", [])
-                            stream_url = download_urls[-1].get("url", "") if download_urls else ""
-                            
-                            formatted_results.append(
-                                f"{idx}. {title} by {artist} (ID: {song_id})\n   Audio Stream: {stream_url}"
-                            )
-                        
-                        output_text = f"Search results for '{q}':\n\n" + "\n\n".join(formatted_results)
+                    artists = data.get("artists")
+                    if artists:
+                        artist_info = artists[0]
+                        artist_name = artist_info.get("strArtist", "Unknown")
+                        genre = artist_info.get("strGenre", "N/A")
+                        country = artist_info.get("strCountry", "N/A")
+                        artist_id = artist_info.get("idArtist", "")
+                        biography = artist_info.get("strBiographyEN", "")[:150] + "..." if artist_info.get("strBiographyEN") else "No bio available."
+
+                        output_text = (
+                            f"Found Artist on TheAudioDB:\n"
+                            f"Artist: {artist_name} (ID: {artist_id})\n"
+                            f"Genre: {genre} | Origin: {country}\n"
+                            f"Bio: {biography}"
+                        )
                     else:
-                        output_text = f"No songs found for '{q}' in the music library."
+                        output_text = f"No results found for '{q}' on TheAudioDB."
                         
                 except Exception as e:
-                    logger.error(f"Error fetching from JioSaavn API: {e}")
-                    output_text = f"Failed to search music library for '{q}' due to a service error."
+                    logger.error(f"Error fetching from TheAudioDB API: {e}")
+                    output_text = f"Failed to search TheAudioDB for '{q}' due to a network or API error."
 
             return {
                 "jsonrpc": "2.0",
@@ -127,7 +124,7 @@ async def handle_request(request: dict) -> dict:
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
-                "result": {"content": [{"type": "text", "text": f"Now streaming song: {song} (ID: {song_id})"}]}
+                "result": {"content": [{"type": "text", "text": f"Now processing playback for song: {song} (ID: {song_id})"}]}
             }
 
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": "Method not found"}}
@@ -163,4 +160,3 @@ async def startup_event():
 @app.get("/")
 def health_check():
     return {"status": "ok"}
-                    
