@@ -37,7 +37,7 @@ TOOLS = [
             "required": ["query"],
             "additionalProperties": False
         }
-    },   ← THIS closing brace was missing
+    },
     {
         "name": "play_music",
         "description": "ALWAYS call this tool whenever the user asks to play a song or track. You MUST pass the song ID in the 'song_id' parameter.",
