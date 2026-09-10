@@ -24,20 +24,20 @@ async def test_endpoint(request: Request):
 
 TOOLS = [
     {
-    "name": "search_music",
-    "description": "Search for music. Use this tool whenever the user asks to search, find, or look up a song, track, music, or artist. IMPORTANT: The only parameter is 'query'. Do NOT use 'author_name' or any other parameter name.",
-    "inputSchema": {
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "REQUIRED. The song title, artist name, or keywords to search for. Example: 'Coldplay' or 'Shape of You'. This is the ONLY parameter."
-            }
-        },
-        "required": ["query"],
-        "additionalProperties": False
-    },
-    
+        "name": "search_music",
+        "description": "Search for music. Use this tool whenever the user asks to search, find, or look up a song, track, music, or artist. IMPORTANT: The only parameter is 'query'. Do NOT use 'author_name' or any other parameter name.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "REQUIRED. The song title, artist name, or keywords to search for. Example: 'Coldplay' or 'Shape of You'. This is the ONLY parameter."
+                }
+            },
+            "required": ["query"],
+            "additionalProperties": False
+        }
+    },   ← THIS closing brace was missing
     {
         "name": "play_music",
         "description": "ALWAYS call this tool whenever the user asks to play a song or track. You MUST pass the song ID in the 'song_id' parameter.",
@@ -57,7 +57,6 @@ TOOLS = [
         }
     }
 ]
-        
 
 async def handle_request(request: dict) -> dict:
     req_id = request.get("id")
