@@ -25,13 +25,13 @@ async def test_endpoint(request: Request):
 TOOLS = [
     {
         "name": "search_music",
-        "description": "ALWAYS call this tool whenever the user asks to search, find, or look up a song, track, music, or artist.",
+        "description": "ALWAYS call this tool whenever the user asks to search, find, or look up a song, track, music, or artist. You MUST pass the search terms in the 'query' parameter.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The song title, keywords, or artist name to search for"
+                    "description": "The search query. This MUST be the song title, artist name, or keywords the user wants to find. Example: 'Coldplay' or 'Shape of You'."
                 }
             },
             "required": ["query"]
@@ -39,17 +39,24 @@ TOOLS = [
     },
     {
         "name": "play_music",
-        "description": "ALWAYS call this tool whenever the user asks to play a song or track.",
+        "description": "ALWAYS call this tool whenever the user asks to play a song or track. You MUST pass the song ID in the 'song_id' parameter.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "song_id": {"type": "string", "description": "The unique ID of the track"},
-                "song_name": {"type": "string", "description": "The title of the song to play"}
+                "song_id": {
+                    "type": "string",
+                    "description": "The unique ID of the track to play."
+                },
+                "song_name": {
+                    "type": "string",
+                    "description": "The title of the song to play."
+                }
             },
             "required": ["song_id"]
         }
     }
 ]
+        
 
 async def handle_request(request: dict) -> dict:
     req_id = request.get("id")
