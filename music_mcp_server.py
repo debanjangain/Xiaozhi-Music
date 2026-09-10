@@ -24,19 +24,20 @@ async def test_endpoint(request: Request):
 
 TOOLS = [
     {
-        "name": "search_music",
-        "description": "ALWAYS call this tool whenever the user asks to search, find, or look up a song, track, music, or artist. You MUST pass the search terms in the 'query' parameter.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The search query. This MUST be the song title, artist name, or keywords the user wants to find. Example: 'Coldplay' or 'Shape of You'."
-                }
-            },
-            "required": ["query"]
-        }
+    "name": "search_music",
+    "description": "Search for music. Use this tool whenever the user asks to search, find, or look up a song, track, music, or artist. IMPORTANT: The only parameter is 'query'. Do NOT use 'author_name' or any other parameter name.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "REQUIRED. The song title, artist name, or keywords to search for. Example: 'Coldplay' or 'Shape of You'. This is the ONLY parameter."
+            }
+        },
+        "required": ["query"],
+        "additionalProperties": False
     },
+    
     {
         "name": "play_music",
         "description": "ALWAYS call this tool whenever the user asks to play a song or track. You MUST pass the song ID in the 'song_id' parameter.",
@@ -93,39 +94,49 @@ async def handle_request(request: dict) -> dict:
         args = params.get("arguments", {})
 
         if tool_name == "search_music":
-            q = args.get("query", "").strip()
-            logger.info(f"Searching TheAudioDB for query: {q}")
+    # Accept ANY parameter name the AI might send
+    q = (
+        args.get("query") or 
+        args.get("author_name") or 
+        args.get("artist") or 
+        args.get("song_name") or 
+        args.get("search_term") or 
+        args.get("q") or
+        ""
+    ).strip()
+    
+    logger.info(f"Received args: {args}")
+    logger.info(f"Searching TheAudioDB for query: {q}")
+    
+    # TheAudioDB public test API endpoint (API Key: 123)
+    api_url = f"https://www.theaudiodb.com/api/v1/json/123/search.php?s={q}"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(api_url, timeout=10.0)
+            data = res.json()
             
-            # TheAudioDB public test API endpoint (API Key: 123)
-            api_url = f"https://www.theaudiodb.com/api/v1/json/123/search.php?s={q}"
-            
-            async with httpx.AsyncClient() as client:
-                try:
-                    res = await client.get(api_url, timeout=10.0)
-                    data = res.json()
-                    
-                    artists = data.get("artists")
-                    if artists:
-                        artist_info = artists[0]
-                        artist_name = artist_info.get("strArtist", "Unknown")
-                        genre = artist_info.get("strGenre", "N/A")
-                        country = artist_info.get("strCountry", "N/A")
-                        artist_id = artist_info.get("idArtist", "")
-                        biography = artist_info.get("strBiographyEN", "")[:150] + "..." if artist_info.get("strBiographyEN") else "No bio available."
+            artists = data.get("artists")
+            if artists:
+                artist_info = artists[0]
+                artist_name = artist_info.get("strArtist", "Unknown")
+                genre = artist_info.get("strGenre", "N/A")
+                country = artist_info.get("strCountry", "N/A")
+                artist_id = artist_info.get("idArtist", "")
+                biography = artist_info.get("strBiographyEN", "")[:150] + "..." if artist_info.get("strBiographyEN") else "No bio available."
 
-                        output_text = (
-                            f"Found Artist on TheAudioDB:\n"
-                            f"Artist: {artist_name} (ID: {artist_id})\n"
-                            f"Genre: {genre} | Origin: {country}\n"
-                            f"Bio: {biography}"
-                        )
-                    else:
-                        output_text = f"No results found for '{q}' on TheAudioDB."
-                        
-                except Exception as e:
-                    logger.error(f"Error fetching from TheAudioDB API: {e}")
-                    output_text = f"Failed to search TheAudioDB for '{q}' due to a network or API error."
-
+                output_text = (
+                    f"Found Artist on TheAudioDB:\n"
+                    f"Artist: {artist_name} (ID: {artist_id})\n"
+                    f"Genre: {genre} | Origin: {country}\n"
+                    f"Bio: {biography}"
+                )
+            else:
+                output_text = f"No results found for '{q}' on TheAudioDB."
+                
+        except Exception as e:
+            logger.error(f"Error fetching from TheAudioDB API: {e}")
+            output_text = f"Failed to search TheAudioDB for '{q}' due to a network or API error."
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
