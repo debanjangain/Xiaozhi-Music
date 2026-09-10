@@ -6,7 +6,7 @@ import asyncio
 import logging
 import httpx
 import websockets
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("XIAOZHI_TOKEN", "").strip(" '\",")
 
 app = FastAPI()
-from fastapi import Request
 
 @app.post("/test")
 async def test_endpoint(request: Request):
@@ -93,49 +92,53 @@ async def handle_request(request: dict) -> dict:
         args = params.get("arguments", {})
 
         if tool_name == "search_music":
-    # Accept ANY parameter name the AI might send
-    q = (
-        args.get("query") or 
-        args.get("author_name") or 
-        args.get("artist") or 
-        args.get("song_name") or 
-        args.get("search_term") or 
-        args.get("q") or
-        ""
-    ).strip()
-    
-    logger.info(f"Received args: {args}")
-    logger.info(f"Searching TheAudioDB for query: {q}")
-    
-    # TheAudioDB public test API endpoint (API Key: 123)
-    api_url = f"https://www.theaudiodb.com/api/v1/json/123/search.php?s={q}"
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.get(api_url, timeout=10.0)
-            data = res.json()
+            # Accept ANY parameter name the AI might send
+            q = (
+                args.get("query") or 
+                args.get("author_name") or 
+                args.get("artist") or 
+                args.get("song_name") or 
+                args.get("search_term") or 
+                args.get("q") or
+                ""
+            ).strip()
             
-            artists = data.get("artists")
-            if artists:
-                artist_info = artists[0]
-                artist_name = artist_info.get("strArtist", "Unknown")
-                genre = artist_info.get("strGenre", "N/A")
-                country = artist_info.get("strCountry", "N/A")
-                artist_id = artist_info.get("idArtist", "")
-                biography = artist_info.get("strBiographyEN", "")[:150] + "..." if artist_info.get("strBiographyEN") else "No bio available."
-
-                output_text = (
-                    f"Found Artist on TheAudioDB:\n"
-                    f"Artist: {artist_name} (ID: {artist_id})\n"
-                    f"Genre: {genre} | Origin: {country}\n"
-                    f"Bio: {biography}"
-                )
+            logger.info(f"Received args: {args}")
+            logger.info(f"Searching TheAudioDB for query: {q}")
+            
+            if not q:
+                output_text = "I didn't catch what you wanted to search for. Please try again."
             else:
-                output_text = f"No results found for '{q}' on TheAudioDB."
+                # TheAudioDB public test API endpoint (API Key: 123)
+                api_url = f"https://www.theaudiodb.com/api/v1/json/123/search.php?s={q}"
                 
-        except Exception as e:
-            logger.error(f"Error fetching from TheAudioDB API: {e}")
-            output_text = f"Failed to search TheAudioDB for '{q}' due to a network or API error."
+                async with httpx.AsyncClient() as client:
+                    try:
+                        res = await client.get(api_url, timeout=10.0)
+                        data = res.json()
+                        
+                        artists = data.get("artists")
+                        if artists:
+                            artist_info = artists[0]
+                            artist_name = artist_info.get("strArtist", "Unknown")
+                            genre = artist_info.get("strGenre", "N/A")
+                            country = artist_info.get("strCountry", "N/A")
+                            artist_id = artist_info.get("idArtist", "")
+                            biography = artist_info.get("strBiographyEN", "")[:150] + "..." if artist_info.get("strBiographyEN") else "No bio available."
+
+                            output_text = (
+                                f"Found Artist on TheAudioDB:\n"
+                                f"Artist: {artist_name} (ID: {artist_id})\n"
+                                f"Genre: {genre} | Origin: {country}\n"
+                                f"Bio: {biography}"
+                            )
+                        else:
+                            output_text = f"No results found for '{q}' on TheAudioDB."
+                            
+                    except Exception as e:
+                        logger.error(f"Error fetching from TheAudioDB API: {e}")
+                        output_text = f"Failed to search TheAudioDB for '{q}' due to a network or API error."
+
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
