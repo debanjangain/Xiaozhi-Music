@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("XIAOZHI_TOKEN", "").strip(" '\",")
 
 app = FastAPI()
+from fastapi import Request
+
+@app.post("/test")
+async def test_endpoint(request: Request):
+    data = await request.json()
+    response = await handle_request(data)
+    return response
 
 TOOLS = [
     {
